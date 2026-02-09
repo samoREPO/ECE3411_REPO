@@ -1,0 +1,39 @@
+# ==============================
+# Microchip Studio / Atmel Studio
+# ==============================
+Debug/
+Release/
+*.atsuo
+*.atsln
+*.user
+*.componentinfo.xml
+
+# ==============================
+# AVR-GCC build artifacts
+# ==============================
+*.o
+*.a
+*.elf
+*.hex
+*.map
+*.lss
+*.eep
+
+# ==============================
+# Temporary / backup files
+# ==============================
+*~
+*.bak
+*.tmp
+
+# ==============================
+# OS-specific junk
+# ==============================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================
+# VS Code (optional)
+# ==============================
+.vscode/
