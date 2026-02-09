@@ -5,14 +5,42 @@
  * Author : samou
  */ 
 
-#include <avr/io.h>
+////-----------------------------//
+///---------- PREAMBLE ---------//
+//-----------------------------//
 
+#define F_CPU 4000000UL  // 4 MHz system clock
+
+#include <avr/io.h>
+#include <util/delay.h>
+
+void blink(uint8_t pin_bm);
+
+//---------------------------------------------------//
 
 int main(void)
 {
-    /* Replace with your application code */
-    while (1) 
-    {
-    }
+	
+////------------------------------------//
+///---------- INITIALIZATION ----------//
+//------------------------------------//
+	PORTB.DIRSET = PIN3_bm;
+//-------------------------------------//
+
+////--------------------------//
+///---------- LOOP ----------//
+//--------------------------//
+	while (1)
+	{
+		blink(PIN3_bm);
+	}
+}
+
+void blink(uint8_t pin_bm)
+{
+	PORTB.OUTSET = pin_bm;
+	_delay_ms(1000);
+	PORTB.OUTCLR = pin_bm;
+	_delay_ms(1000);
 }
 
