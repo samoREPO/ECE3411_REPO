@@ -25,13 +25,22 @@ void delay_ms_var(uint16_t ms);
 
 int main(void)
 {
-	PORTD.DIRSET = DIRSET_gm;
+	PORTD.DIRSET = DIRSET_gm; // task a
     PORTD.OUTCLR = OUTCLR_gm;
 	PORTB.PIN2CTRL |= PORT_PULLUPEN_bm;
 	
+	uint16_t curr_freq = 2;
+	uint8_t curr_byte_value = 0x04;
+	
     while (1) 
     {
-		blink(2, PIN3_bm);
+		//blink(2, PIN3_bm); // task b
+		
+		// is overflow handling automatic?
+		PORTD.OUTSET = curr_byte_value++;
+		delay_ms_var(1000 / curr_freq);
+		
+		
     }
 }
 
