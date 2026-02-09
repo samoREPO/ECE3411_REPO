@@ -25,8 +25,8 @@ void delay_ms_var(uint16_t ms);
 
 int main(void)
 {
-	VPORTD.DIRSET = DIRSET_gm;
-    VPORTD.OUTCLR = OUTCLR_gm;
+	PORTD.DIRSET = DIRSET_gm;
+    PORTD.OUTCLR = OUTCLR_gm;
 	PORTB.PIN2CTRL |= PORT_PULLUPEN_bm;
 	
     while (1) 
@@ -42,10 +42,10 @@ void delay_ms_var(uint16_t ms){
 }
 
 void blink(uint8_t freq, uint8_t PINx_bm){
-	uint16_t half_period_ms = (1000 / 2) freq;     // recall T = 1/f
-	VPORTD.OUTTGL = PINx_bm;
+	uint16_t half_period_ms = (1000 / 2) / freq;     // recall T = 1/f
+	PORTD.OUTTGL = PINx_bm;
 	delay_ms_var(half_period_ms);
-	VPORTD.OUTTGL = PINx_bm;
+	PORTD.OUTTGL = PINx_bm;
 	delay_ms_var(half_period_ms);
 }
 
