@@ -17,14 +17,14 @@
 #define OUTCLR_gm 0xFF
 
 typedef enum { WAIT_SELECT, WAIT_FREQUENCY, WAIT_POSITION} ui_state_t;
-volatile ui_state_t ui_state = WAIT_SELECT;
+ui_state_t ui_state = WAIT_SELECT;
 
 volatile uint8_t rx_ready = 0;
 volatile uint8_t rx_byte = 0;
-volatile char selected = 0;
 
-volatile uint8_t frequency = 2;
-volatile uint8_t position = 2;
+char selected = 0;
+uint8_t frequency = 2;
+uint8_t position = 2;
 uint8_t pin[] = {PIN0_bm, PIN1_bm, PIN2_bm, PIN3_bm, PIN4_bm, PIN5_bm, PIN6_bm, PIN7_bm};
 
 void init_clock();
@@ -42,8 +42,9 @@ int main(void)
 	init_clock();	
 	uart_init(3, 9600, NULL);
 		
-	USART3.CTRLA |= USART_RXCIE_bm; // enable UART TX interrupt
+	USART3.CTRLA |= USART_RXCIE_bm; // enable UART RX interrupt
 	sei();
+	printf("Press F/f to change frequency or P/p to change position\n");
 
     while (1) 
     {
@@ -51,9 +52,8 @@ int main(void)
 	if(rx_ready){
 		cli();
 		if(rx_ready) rx_ready = 0;
-		sei();
-
 		handle_rx_char(rx_byte);
+		sei();
 	}
 
 	blink(frequency, position);
@@ -103,11 +103,11 @@ void handle_rx_char(char c){
 		case WAIT_SELECT:
 			if(c == 'f'){
 				ui_state = WAIT_FREQUENCY;
-				printf("Press a desired frequency(1-9):");
+				printf("Press a desired frequency(1-9):\n");
 			}
 			else if(c == 'p'){
 				ui_state = WAIT_POSITION;
-				printf("Press a desired position(0-7):");
+				printf("Press a desired position(0-7):\n");
 			}
 			else{
 				printf("INVALID SELECTION\n");
