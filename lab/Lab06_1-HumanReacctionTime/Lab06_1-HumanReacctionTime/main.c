@@ -19,19 +19,22 @@
 volatile int timerCount;
 
 void init_clock();
-void delay_ms_var(uint16_t ms);
 void InitTCA0 (void);
 
 int main(void)
 {
 	PORTD.DIRSET = DIRSET_gm;
-
+	
+	InitTCA0();
+	
 	while (1) 
     {
 		PORTD.OUTCLR = OUTCLR_gm;
 		long r = (random() % 3000) + 2000; // random: (2000 - 5000)
-		delay_ms_var(r);
-		PORTD.OUTSET = PIN7_bm;
+		timerCount = r;
+		if(timerCount == 0){
+			PORTD.OUTSET = PIN7_bm;
+		}
     }
 }
 
