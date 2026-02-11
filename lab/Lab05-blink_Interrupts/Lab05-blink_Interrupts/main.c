@@ -20,6 +20,7 @@ typedef enum { WAIT_SELECT, WAIT_FREQUENCY, WAIT_POSITION} ui_state_t;
 volatile ui_state_t ui_state = WAIT_SELECT;
 
 volatile uint8_t rx_ready = 0;
+volatile uint8_t rx_byte = 0;
 volatile char selected = 0;
 
 volatile uint8_t frequency = 2;
@@ -41,17 +42,18 @@ int main(void)
 	init_clock();	
 	uart_init(3, 9600, NULL);
 		
-	USART3.CTRLA |= USART_DREIE_bm; // enable UART TX interrupt
+	USART3.CTRLA |= USART_RXCIE_bm; // enable UART TX interrupt
 	sei();
 
     while (1) 
     {
-
+		
 	if(rx_ready){
 		cli();
 		if(rx_ready) rx_ready = 0;
 		sei();
-		handle_rx_char(selected);
+
+		handle_rx_char(rx_byte);
 	}
 
 	blink(frequency, position);
@@ -60,8 +62,8 @@ int main(void)
 
 }
 
-ISR(USART3_DRE_vect){
-	selected = USART3.RXDATAL;
+ISR(USART3_RXC_vect){
+	rx_byte = USART3.RXDATAL;
 	rx_ready = 1;
 }
 
@@ -88,21 +90,20 @@ void delay_ms_var(uint16_t ms){
 // 50% duty cycle blink function
 void blink(uint8_t frequency, uint8_t position){
 	uint16_t half_period_ms = 1000 / (2*frequency);     // recall T = 1/f
-	PORTD.OUTTGL = position;
+	PORTD.OUTTGL = pin[position];
 	delay_ms_var(half_period_ms);
-	PORTD.OUTTGL = position;
+	PORTD.OUTTGL = pin[position];
 	delay_ms_var(half_period_ms);
 }
 
 void handle_rx_char(char c){
 	if (c >= 'A' && c <= 'Z') c += ('a' - 'A');
-	if (c >= '0' && c <= '9') c -= '0';
 
 	switch(ui_state){
 		case WAIT_SELECT:
 			if(c == 'f'){
 				ui_state = WAIT_FREQUENCY;
-				printf("Press a desired frequency(0-9):");
+				printf("Press a desired frequency(1-9):");
 			}
 			else if(c == 'p'){
 				ui_state = WAIT_POSITION;
@@ -111,14 +112,21 @@ void handle_rx_char(char c){
 			else{
 				printf("INVALID SELECTION\n");
 				printf("Press F/f to change frequency or P/p to change position\n");
+			}
 			break;
 		case WAIT_FREQUENCY:
-			frequency = c;
+			if(c >= '1' && c <= '9'){
+				uint8_t d = (uint8_t)(c - '0');
+				frequency = d;
+			}
 			ui_state = WAIT_SELECT;
 			printf("Press F/f to change frequency or P/p to change position\n");
 			break;
 		case WAIT_POSITION:
-			position = c;
+			if(c >= '0' && c <= '7'){
+				uint8_t d = (uint8_t)(c - '0');
+				position = d;
+			}
 			ui_state = WAIT_SELECT;
 			printf("Press F/f to change frequency or P/p to change position\n");
 			break;
