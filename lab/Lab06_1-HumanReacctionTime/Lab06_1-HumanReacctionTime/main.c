@@ -85,16 +85,6 @@ void init_clock() {
 
 }
 
-//ISR(USART3_RXC_vect){
-	//uint8_t rx_byte = USART3.RXDATAL;
-//}
-//----------------------------//
-
-//----------------------------//
-//----- TIMER FUNCTIONS -----//
-//--------------------------//
-
-// 1ms ISR for Timer TCA0 assuming F_CPU = 16MHz
 void InitTCA0(){
 	TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_NORMAL_gc; // Normal mode
 	TCA0.SINGLE.PER = 249; // Set number of ticks per period
