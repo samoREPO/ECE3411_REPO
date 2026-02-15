@@ -9,6 +9,7 @@
 #define BTN (!(PORTB.IN & PIN2_bm))
 #define DEBOUNCE_TIME 10
 #include "uart.h"
+#include <avr/io.h>
 #include <avr/interrupt.h> // includes interrupt
 #include <stdlib.h> // includes support for PRNG
 #include <stdbool.h> // includes typedef of bool & related functions
