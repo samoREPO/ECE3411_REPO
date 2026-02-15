@@ -10,7 +10,7 @@
 #define PRINT_FREQUENCY_TIME 5000
 #define FREQUENCY_TO_PERIOD_SCALAR 500
 #define BTN1 (!(PORTB.IN & PIN2_bm))
-#define BTN2 (!(PORTB.IN & PIN3_bm))
+#define BTN2 (!(PORTB.IN & PIN4_bm))
 
 #include "uart.h"
 #include <avr/io.h>
@@ -24,20 +24,22 @@ typedef enum {RELEASED, MAYBE_PUSHED, PUSHED, MAYBE_RELEASED
 
 volatile int debounce_timerCount = DEBOUNCE_TIME;
 volatile int print_timerCount = PRINT_FREQUENCY_TIME;
-volatile int blink_timerCount = FREQUENCY_TO_PERIOD_SCALAR / frequency;
+volatile int blink_timerCount = FREQUENCY_TO_PERIOD_SCALAR;
 volatile bool ready_to_print = false;
 volatile bool ready_to_blink = false;
 volatile bool btn1Pushed = false;
 volatile bool btn2Pushed = false;
 
-uint8_t frequency = 3;
+uint8_t frequency = 1;
 
 
 
 // half_period_ms = 1000 / 2 / freq
 
 void init_clock();
-void buttonSM();
+void InitTCA0();
+void buttonSM1();
+void buttonSM2();
 void handle_btn1_push(); // TODO implement this function body
 void handle_btn2_push(); // TODO implement this function body
 void handle_ready_to_print();
@@ -51,7 +53,7 @@ int main(void)
 	uart_init(3, 9600, NULL);
 
 	// Button setup
-	PORTB.DIRCLR = PIN2_bm;
+	PORTB.DIRCLR = PIN2_bm | PIN4_bm;
 	PORTB.PIN2CTRL |= PORT_PULLUPEN_bm;
 	
 	// LED setup
@@ -89,6 +91,7 @@ int main(void)
 			ready_to_blink = false;
 			sei();
 			toggle_LED();
+		}
     }
 }
 
@@ -137,8 +140,11 @@ ISR(TCA0_OVF_vect){
 		
 	}
 	if(blink_timerCount>0){
+		blink_timerCount--;
+	}
+	else{
 		ready_to_blink = true;
-		blink_timerCount = FREQUENCY_TO_PERIOD_SCALAR / frequency;
+		blink_timerCount = FREQUENCY_TO_PERIOD_SCALAR / frequency;		
 	}
 	
 	// "T/2" second timer for blinking
@@ -200,7 +206,7 @@ void handle_btn1_push(){
 }
 
 void handle_btn2_push(){
-	frequency--;
+	if(frequency > 1) frequency--;
 }
 
 void handle_ready_to_print(){
