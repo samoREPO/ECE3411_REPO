@@ -137,8 +137,8 @@ ISR(TCA0_OVF_vect){
 	else{
 		ready_to_print = true;
 		print_timerCount = PRINT_FREQUENCY_TIME;
-		
 	}
+	
 	if(blink_timerCount>0){
 		blink_timerCount--;
 	}
