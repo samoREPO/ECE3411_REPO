@@ -5,17 +5,18 @@
  * Author : samou
  */ 
 
-#define F_CPU 16000000 // CPUclk = 16MHz
+#define F_CPU 16000000UL // CPUclk = 16MHz
 #define DEBOUNCE_TIME 10
 #define PRINT_FREQUENCY_TIME 5000
-#define FREQUENCY_TO_CMP0_SCALAR 16000000/512
+#define FREQUENCY_TO_CMP0_SCALAR F_CPU/512
 #define BTN1 (!(VPORTB.IN & PIN2_bm))
-#define BTN2 (!(VPORTB.IN & PIN4_bm)
+#define BTN2 (!(VPORTB.IN & PIN4_bm))
 
 #include "uart.h"
 #include <avr/io.h>
 #include <stdbool.h>
 #include <avr/interrupt.h>
+#include <stdio.h>
 	
 volatile int debounce_timerCount1 = DEBOUNCE_TIME;
 volatile int debounce_timerCount2 = DEBOUNCE_TIME;
@@ -55,13 +56,13 @@ int main(void)
 			cli();
 			btn1pushed = false;	
 			sei();
-			handle_btn1_push(); // TODO: write handle btn1 push function
+			handle_btn1_push();
 		}
 		if(btn2pushed){
 			cli();
 			btn2pushed = false;
 			sei();
-			handle_btn2_push(); // TODO: write handle btn2 push function
+			handle_btn2_push();
 		}
 		if(ready_to_print){
 			cli();
@@ -97,14 +98,14 @@ void InitTCA0(){
 void InitTCA1(){
 	TCA1.SINGLE.CTRLB = TCA_SINGLE_WGMODE_FRQ_gc; // FREQ mode
 	TCA1.SINGLE.CMP0 = (FREQUENCY_TO_CMP0_SCALAR / frequency) - 1; // Set number of ticks per period
-	TCA1.SINGLE.INTCTRL = TCA_SINGLE_CMP0_bm; // Enable TCA1 CMP0 ISR
+	//TCA1.SINGLE.INTCTRL = TCA_SINGLE_CMP0_bm; // Enable TCA1 CMP0 ISR
 	TCA1.SINGLE.CTRLB |= TCA_SINGLE_CMP0EN_bm; // Enable Waveform output
 	
 	// set prescalar to 64 & enable timer. Each tick is 4us
 	TCA1.SINGLE.CTRLA |= (TCA_SINGLE_CLKSEL_DIV256_gc | TCA_SINGLE_ENABLE_bm);
 	
-	PORTMUX.TCAROUTEA |= PORTMUX_TCA0_PORTE_gc; // Route TCA1 to PORTE
-	PORTE.DIRSET = PIN0_bm; // Enable waveform output
+	PORTMUX.TCAROUTEA |= PORTMUX_TCA1_PORTC_gc; // Route TCA1 to PORTE
+	PORTC.DIRSET = PIN4_bm; // Enable waveform output
 }
 
 //-------------------- BUTTON things --------------------------------------//
@@ -131,11 +132,11 @@ ISR(PORTB_PORT_vect){
 ISR(TCA0_OVF_vect){
 	if(debounce_timerCount1 > 0){
 		debounce_timerCount1--;
-		if(debounce_timerCount1 == 0 && BTN1){btn1pushed = true;}
+		if((debounce_timerCount1 == 0) && BTN1){btn1pushed = true;}
 	}
 	if(debounce_timerCount2 > 0){
 		debounce_timerCount2--;
-		if(debounce_timerCount2 == 0 && BTN2) {btn2pushed = true;}
+		if((debounce_timerCount2 == 0) && BTN2) {btn2pushed = true;}
 	}
 	
 	// 5 second timer for printing frequency
