@@ -27,7 +27,7 @@ volatile bool btn1pushed = false;
 volatile bool btn2pushed = false;
 volatile bool ready_to_print = false;
 volatile bool ready_to_print_pulseWidth = false;
-volatile uint8_t pulseWidth_Count_Reference = 0;
+volatile uint32_t pulseWidth_Count_Reference = 0;
 volatile uint32_t pulseWidth_Count = 0;
 volatile uint32_t average_pulseWidth_Count = 0;
 
@@ -88,6 +88,7 @@ int main(void)
 			ready_to_print_pulseWidth = false;
 			sei();
 			handle_print_pulseWidth();
+		}
     }
 }
 
@@ -147,6 +148,7 @@ ISR(PORTB_PORT_vect){
 		if(debounce_timerCount2 == 0){debounce_timerCount2 = DEBOUNCE_TIME;}
 	}
 	if(PORTB.INTFLAGS & PIN5_bm){
+		PORTB.INTFLAGS = PIN5_bm;
 		if(!(PORTB.IN & PIN5_bm)){
 			// TODO: Capture time on rising edge
 			pulseWidth_Count_Reference = TCA0.SINGLE.CNT;
@@ -213,4 +215,5 @@ void InitReadWO0_Int(){
 }
 void handle_print_pulseWidth(){
 	printf("pulse width: %lu\n", (average_pulseWidth_Count / frequency));
+	average_pulseWidth_Count = 0;
 }
