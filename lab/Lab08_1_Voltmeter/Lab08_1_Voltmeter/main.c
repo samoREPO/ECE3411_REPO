@@ -6,6 +6,7 @@
  */ 
 
 #define F_CPU 16000000UL // CPUclk = 16MHz
+#define ONE_SEC 1000
 
 #include "uart.h"
 #include <avr/io.h>
@@ -20,6 +21,7 @@ void read_ADC_then_print();
 void InitTCA0();
 
 volatile bool ready_ADC = false;
+volatile uint16_t one_sec_counter = ONE_SEC;
 
 int main(void)
 {
@@ -34,9 +36,9 @@ int main(void)
 	
     while (1) 
     {
-		if(ready_ADC){
+		if(one_sec_counter == 0){
 			cli();
-			ready_ADC = false;
+			one_sec_counter = ONE_SEC;
 			sei();
 			read_ADC_then_print();
 		}
@@ -67,7 +69,7 @@ void InitTCA0(){
 }
 
 ISR(TCA0_OVF_vect){
-	ready_ADC = true;
+	if(one_sec_counter>0){one_sec_counter--;}
 	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
 //--------------------- ADC functions-----------------------//
@@ -76,7 +78,7 @@ void init_ADC(){
 	ADC0.CTRLC = ADC_PRESC_DIV16_gc; // Set CLK_ADC to 1MHz (valid range from 125kHz to 2MHz)
 	ADC0.CTRLD = ADC_INITDLY_DLY16_gc; // Delay 16 CLK_ADC cycles - 16 us
 	VREF.ADC0REF = VREF_REFSEL_VDD_gc; // VDD as reference
-	ADC0.CTRLA = ADC_ENABLE_bm | ADC_LEFTADJ_bm; // enables the ADC circuitry and left adjusted and 12-bit (3.3/2^12=0.8mV resolution 
+	ADC0.CTRLA |= ADC_ENABLE_bm; // enables the ADC circuitry and left adjusted and 12-bit (3.3/2^12=0.8mV resolution 
 	ADC0.COMMAND = ADC_STCONV_bm; // start first A to D conversion
 	 
 	while(ADC0.COMMAND & ADC_STCONV_bm);
@@ -84,11 +86,11 @@ void init_ADC(){
 
 void read_ADC_then_print(){
 	uint16_t r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
-	float Voltage = ((float)r/65536.0f) * 3.3f; // 3.3*(RES/(2^12))
+	float Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
 	
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
 	
 	char VoltageBuffer[6];
-	dtostrf(Voltage, 4, 2, VoltageBuffer);
+	dtostrf(Voltage, 4, 3, VoltageBuffer);
 	printf("%s\n\r", VoltageBuffer);
 }

@@ -104,7 +104,7 @@ void InitTCA1(){
 	// set prescalar to 64 & enable timer. Each tick is 4us
 	TCA1.SINGLE.CTRLA |= (TCA_SINGLE_CLKSEL_DIV256_gc | TCA_SINGLE_ENABLE_bm);
 	
-	PORTMUX.TCAROUTEA |= PORTMUX_TCA1_PORTC_gc; // Route TCA1 to PORTE
+	PORTMUX.TCAROUTEA |= PORTMUX_TCA1_PORTC_gc; // Route TCA1 to PORTC
 	PORTC.DIRSET = PIN4_bm; // Enable waveform output
 }
 
