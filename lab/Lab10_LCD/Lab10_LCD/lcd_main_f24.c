@@ -9,6 +9,7 @@
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include "lcd_lib.h"
+#include "I2C_lib.h"
 
 void init_clock()
 {
@@ -40,6 +41,7 @@ const uint8_t blank[] PROGMEM = "Blank/Visible\0";
 int main(void) { 
     // Initializations:
     init_clock();
+	TWI_Host_Initialize();
     LCDinitialize(); 
 	
     while(1) {

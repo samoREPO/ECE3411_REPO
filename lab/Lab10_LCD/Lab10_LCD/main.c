@@ -6,6 +6,7 @@
  */ 
 
 #include <avr/io.h>
+#include <util/twi.h>
 #include "lcd_lib.h"
 #include "I2C_lib.h"
 
@@ -14,8 +15,9 @@ int main(void)
 {
 	// I2C setup 
     TWI_Host_Initialize();
-	PORTF.PIN2CTRL |= PORT_PULLUPEN_bm; // Pullup resistor on data bus
-	PORTF.PIN3CTRL |= PORT_PULLUPEN_bm; // Pullup resistor on SCLK
+	
+	//LCD setup
+	LCDinitialize();
 	
     while (1) 
     {
