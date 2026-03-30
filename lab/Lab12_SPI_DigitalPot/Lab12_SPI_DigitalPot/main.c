@@ -13,6 +13,7 @@
 #define SPI_SS PIN7_bm
 #define MPC4131_CMD_WRITE 0x00
 #define ADC_MAX 4095
+#define CMPSTATE_bm 0x10
 
 #include <avr/io.h>
 #include <stdio.h>
@@ -29,6 +30,7 @@ uint8_t SPI_Client_Receive(void);
 void init_ADC(void);
 void init_AC(void);
 void InitTCA0(void);
+void config_MPC4131(void);
 
 
 volatile uint16_t one_sec_counter = 1000;
@@ -48,6 +50,7 @@ int main(void)
 			cli();
 			one_sec_counter = 1000;
 			sei();
+			config_MPC4131();
 		}
     }
 }
@@ -138,4 +141,19 @@ ISR(TCA0_OVF_vect)
 		one_sec_counter--;
 	}
 	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
+}
+
+void config_MPC4131(void)
+{
+	uint8_t curr_voltage = 0x00;
+	//MPC4131_write(0x40);
+	for(int i=6; i>=0; i--)
+	{
+		uint8_t guess = curr_voltage | (0x01 << i);
+		MPC4131_write(guess);
+		if(AC0.STATUS == CMPSTATE_bm) // AINP (POT) > AINN (DIGIPOT)
+		{
+			curr_voltage |= (0x01 << i);
+		}
+	}
 }
