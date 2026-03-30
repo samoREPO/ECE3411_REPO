@@ -16,10 +16,14 @@
 #define CMPSTATE_bm 0x10
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+#include <util/delay.h>
+#include "lcd_lib.h"
+#include "I2C_lib.h"
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <util/delay.h>
-#include <avr/interrupt.h>
 
 /*** FUNCTION PROTOTYPES ***/
 void SPI_Host_Init(void);
@@ -31,17 +35,35 @@ void init_ADC(void);
 void init_AC(void);
 void InitTCA0(void);
 void config_MPC4131(void);
+void init_clock(void);
+void display_voltages(void);
+void ADC_POT(void);
+void ADC_digitalPOT(void);
 
 
 volatile uint16_t one_sec_counter = 1000;
 
 int main(void)
 {
+    // Initializations:
+    // -- LCD
+    init_clock();
+    TWI_Host_Initialize();
+    LCDinitialize();
+	
+	// -- ADC
     init_ADC();
+	
+	// -- AC
 	init_AC();
+	
+	// -- SPI
 	SPI_Host_Init();
+	
+	// -- TIMER
 	InitTCA0();
-	sei();
+	
+	sei(); //  enable interrupts
 	
     while (1) 
     {
@@ -51,10 +73,12 @@ int main(void)
 			one_sec_counter = 1000;
 			sei();
 			config_MPC4131();
+			display_voltages();
 		}
     }
 }
 
+// -- SPI FUNCTIONS -- //
 void SPI_Host_Init(void)
 {
 	// Set MOSI, SCK, and SS output, all others input
@@ -69,19 +93,6 @@ uint8_t SPI_Host_Transceiver(uint8_t cData)
 	SPI0.DATA = cData; // Start transmission - SS pulled down by hardware
 	while(!(SPI0.INTFLAGS & SPI_IF_bm)); // Wait for transmission complete
 	return SPI0.DATA; // return received data
-}
-
-void MPC4131_write(uint16_t data)
-{
-	uint16_t frame = (data & 0x03FF);
-	uint8_t frameH = ((frame & 0xFF00) >> 8);
-	uint8_t frameL = frame & 0x00FF;
-	
-	SPI0.CTRLB &= !SPI_SSD_bm;
-	SPI_Host_Transceiver(frameH);
-	SPI_Host_Transceiver(frameL);
-	SPI0.CTRLB |= SPI_SSD_bm;
-	
 }
 
 void SPI_Client_Init(void)
@@ -114,12 +125,25 @@ void init_ADC(void)
 	while(ADC0.COMMAND & ADC_STCONV_bm);
 }
 
-// -- Analog Comparator -- //
+void ADC_POT(void)
+{
+	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc; // Input voltage at AIN8 PORTE0
+}
+
+void ADC_digitalPOT(void)
+{
+	ADC0.MUXPOS = ADC_MUXPOS_AIN7_gc; // Input voltage at AIN7 PORTD7;
+}
+
+// -- Analog Comparator FUNCTIONS -- //
 void init_AC(void)
 {
 	AC0.CTRLA = AC_ENABLE_bm;
 	// compare pins PE0 (0, AINP1) and PD7 (0, AINN2)
 	AC0.MUXCTRL = (1 << AC_MUXPOS_gp) | (2 << AC_MUXNEG_gp);
+	
+	PORTD.DIRSET = PIN7_bm;
+	PORTE.DIRSET = PIN0_bm;
 }
 
 // -- TIMER FUNCITONS --//
@@ -143,6 +167,20 @@ ISR(TCA0_OVF_vect)
 	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
 
+// -- MPC4131 FUNCTIONS -- //
+void MPC4131_write(uint16_t data)
+{
+	uint16_t frame = (data & 0x03FF);
+	uint8_t frameH = ((frame & 0xFF00) >> 8);
+	uint8_t frameL = frame & 0x00FF;
+	
+	SPI0.CTRLB &= !SPI_SSD_bm;
+	SPI_Host_Transceiver(frameH);
+	SPI_Host_Transceiver(frameL);
+	SPI0.CTRLB |= SPI_SSD_bm;
+	
+}
+
 void config_MPC4131(void)
 {
 	uint8_t curr_voltage = 0x00;
@@ -156,4 +194,55 @@ void config_MPC4131(void)
 			curr_voltage |= (0x01 << i);
 		}
 	}
+}
+
+// -- I2C FUNCTIONS -- //
+void init_clock(void)
+{
+	//	set internal oscillator to 16MHz
+	//	CPU_CCP = CCP_IOREG_gc;
+	//	CLKCTRL.OSCHFCTRLA = CLKCTRL_FRQSEL_16M_gc;
+
+	//	use external 16MHz crystal
+	CPU_CCP = CCP_IOREG_gc;
+	CLKCTRL.XOSCHFCTRLA = CLKCTRL_FRQRANGE_16M_gc | CLKCTRL_ENABLE_bm;
+	CPU_CCP = CCP_IOREG_gc;
+	CLKCTRL.MCLKCTRLA = CLKCTRL_CLKSEL_EXTCLK_gc;
+	while(!(CLKCTRL.MCLKSTATUS & CLKCTRL_EXTS_bm));
+}
+
+// -- LCD FUNCTIONS -- //
+void display_voltages(void)
+{
+	ADC_POT();
+	
+	uint16_t r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
+	float Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
+		
+	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
+		
+	char VoltageBuffer[6];
+	dtostrf(Voltage, 4, 3, VoltageBuffer);
+	
+	char LCDout [20] = "V POT: ";
+	strcat(LCDout, VoltageBuffer);
+		
+	LCDgotoXY(0,0);
+	LCDstring(LCDout);
+	
+	ADC_digitalPOT();
+	
+	uint16_t r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
+	float Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
+		
+	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
+		
+	char VoltageBuffer[6];
+	dtostrf(Voltage, 4, 3, VoltageBuffer);
+		
+	char LCDout [20] = "V DPOT: ";
+	strcat(LCDout, VoltageBuffer);
+		
+	LCDgotoXY(0,1);
+	LCDstring(LCDout);
 }
