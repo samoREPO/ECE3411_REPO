@@ -72,7 +72,6 @@ int main(void)
 			cli();
 			one_sec_counter = 1000;
 			sei();
-			config_MPC4131();
 			display_voltages();
 		}
     }
@@ -113,15 +112,14 @@ uint8_t SPI_Client_Receive(void)
 }
 
 // -- ADC FUNCTIONS -- //
-void init_ADC(void)
-{
+void init_ADC(){
 	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc; // Input voltage at AIN8 PORTE0
 	ADC0.CTRLC = ADC_PRESC_DIV16_gc; // Set CLK_ADC to 1MHz (valid range from 125kHz to 2MHz)
 	ADC0.CTRLD = ADC_INITDLY_DLY16_gc; // Delay 16 CLK_ADC cycles - 16 us
 	VREF.ADC0REF = VREF_REFSEL_VDD_gc; // VDD as reference
-	ADC0.CTRLA |= ADC_ENABLE_bm; // enables the ADC circuitry and left adjusted and 12-bit (3.3/2^12=0.8mV resolution
+	ADC0.CTRLA |= ADC_ENABLE_bm; // enables the ADC circuitry and left adjusted and 12-bit (3.3/2^12=0.8mV resolution 
 	ADC0.COMMAND = ADC_STCONV_bm; // start first A to D conversion
-	
+	 
 	while(ADC0.COMMAND & ADC_STCONV_bm);
 }
 
@@ -141,9 +139,6 @@ void init_AC(void)
 	AC0.CTRLA = AC_ENABLE_bm;
 	// compare pins PE0 (0, AINP1) and PD7 (0, AINN2)
 	AC0.MUXCTRL = (1 << AC_MUXPOS_gp) | (2 << AC_MUXNEG_gp);
-	
-	PORTD.DIRSET = PIN7_bm;
-	PORTE.DIRSET = PIN0_bm;
 }
 
 // -- TIMER FUNCITONS --//
@@ -174,22 +169,22 @@ void MPC4131_write(uint16_t data)
 	uint8_t frameH = ((frame & 0xFF00) >> 8);
 	uint8_t frameL = frame & 0x00FF;
 	
-	SPI0.CTRLB &= !SPI_SSD_bm;
+	SPI_PORT.OUTCLR = SPI_SS;   // CS low
 	SPI_Host_Transceiver(frameH);
 	SPI_Host_Transceiver(frameL);
-	SPI0.CTRLB |= SPI_SSD_bm;
+	SPI_PORT.OUTSET = SPI_SS;   // CS high
 	
 }
 
 void config_MPC4131(void)
 {
 	uint8_t curr_voltage = 0x00;
-	//MPC4131_write(0x40);
+
 	for(int i=6; i>=0; i--)
 	{
 		uint8_t guess = curr_voltage | (0x01 << i);
 		MPC4131_write(guess);
-		if(AC0.STATUS == CMPSTATE_bm) // AINP (POT) > AINN (DIGIPOT)
+		if (AC0.STATUS & CMPSTATE_bm) // AINP (POT) > AINN (DIGIPOT)
 		{
 			curr_voltage |= (0x01 << i);
 		}
@@ -215,14 +210,15 @@ void init_clock(void)
 void display_voltages(void)
 {
 	ADC_POT();
+	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
+	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
+
 	
 	uint16_t r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
 	float Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
 		
-	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
-		
 	char VoltageBuffer[6];
-	dtostrf(Voltage, 4, 3, VoltageBuffer);
+	dtostrf(Voltage, 4, 2, VoltageBuffer);
 	
 	char LCDout [20] = "V POT: ";
 	strcat(LCDout, VoltageBuffer);
@@ -230,19 +226,21 @@ void display_voltages(void)
 	LCDgotoXY(0,0);
 	LCDstring(LCDout);
 	
-	ADC_digitalPOT();
+	config_MPC4131();
 	
-	uint16_t r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
-	float Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
-		
+	ADC_digitalPOT();
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
+	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
+
+	
+	r = ADC0.RES; // TODO: check if i can do this instead of RESL then RESH
+	Voltage = ((float)r/4096.0f) * 3.3f; // 3.3*(RES/(2^12))
+				
+	dtostrf(Voltage, 4, 2, VoltageBuffer);
 		
-	char VoltageBuffer[6];
-	dtostrf(Voltage, 4, 3, VoltageBuffer);
-		
-	char LCDout [20] = "V DPOT: ";
-	strcat(LCDout, VoltageBuffer);
+	char LCDout2 [20] = "V DPOT: ";
+	strcat(LCDout2, VoltageBuffer);
 		
 	LCDgotoXY(0,1);
-	LCDstring(LCDout);
+	LCDstring(LCDout2);
 }
