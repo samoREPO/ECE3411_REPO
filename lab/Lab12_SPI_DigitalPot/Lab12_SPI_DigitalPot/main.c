@@ -23,20 +23,32 @@
 /*** FUNCTION PROTOTYPES ***/
 void SPI_Host_Init(void);
 uint8_t SPI_Host_Transceiver(uint8_t cData);
-void MPC4131_write(uint8_t command, uint16_t data);
+void MPC4131_write(uint16_t data);
 void SPI_Client_Init(void);
 uint8_t SPI_Client_Receive(void);
 void init_ADC(void);
 void init_AC(void);
+void InitTCA0(void);
+
+
+volatile uint16_t one_sec_counter = 1000;
 
 int main(void)
 {
     init_ADC();
 	init_AC();
 	SPI_Host_Init();
+	InitTCA0();
+	sei();
 	
     while (1) 
     {
+		if(one_sec_counter == 0)
+		{
+			cli();
+			one_sec_counter = 1000;
+			sei();
+		}
     }
 }
 
@@ -56,9 +68,9 @@ uint8_t SPI_Host_Transceiver(uint8_t cData)
 	return SPI0.DATA; // return received data
 }
 
-void MPC4131_write(uint8_t command, uint16_t data)
+void MPC4131_write(uint16_t data)
 {
-	uint16_t frame = (((command & 0x03) << 10) | (data & 0x03FF));
+	uint16_t frame = (data & 0x03FF);
 	uint8_t frameH = ((frame & 0xFF00) >> 8);
 	uint8_t frameL = frame & 0x00FF;
 	
@@ -105,4 +117,25 @@ void init_AC(void)
 	AC0.CTRLA = AC_ENABLE_bm;
 	// compare pins PE0 (0, AINP1) and PD7 (0, AINN2)
 	AC0.MUXCTRL = (1 << AC_MUXPOS_gp) | (2 << AC_MUXNEG_gp);
+}
+
+// -- TIMER FUNCITONS --//
+void InitTCA0(void)
+{
+	TCA0.SINGLE.CTRLB = TCA_SINGLE_WGMODE_NORMAL_gc; // Normal mode
+	TCA0.SINGLE.PER = 999; // Set number of ticks per period
+	
+	TCA0.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm; // Enable TCA0 Overflow ISR
+	
+	TCA0.SINGLE.CTRLA |= TCA_SINGLE_CLKSEL_DIV16_gc; // Set Prescalar to 16. each tick is 1us.
+	TCA0.SINGLE.CTRLA |= TCA_SINGLE_ENABLE_bm; // enable timer
+}
+
+ISR(TCA0_OVF_vect)
+{
+	if(one_sec_counter > 0)
+	{
+		one_sec_counter--;
+	}
+	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
