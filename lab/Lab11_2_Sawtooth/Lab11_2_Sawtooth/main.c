@@ -70,7 +70,7 @@ ISR(TCA0_OVF_vect)
 // -- PWM FUNCTIONS -- //
 void InitTCA1(void)
 {
-	TCA1.SINGLE.PER = PER_MAX; // TOP = 1000 ticks. T=1ms.
+	TCA1.SINGLE.PER = 250; // TOP = 1000 ticks. T=1ms.
 	
 	TCA1.SINGLE.CTRLA |= TCA_SINGLE_ENABLE_bm; // enable TCA0
 	TCA1.SINGLE.CTRLA |= TCA_SINGLE_CLKSEL_DIV16_gc ; // Set CLK to 16MHz 'div' 16 = 1MHz
@@ -100,7 +100,7 @@ void init_ADC(void)
 void update_period(void)
 {
 		uint16_t r = ADC0.RES;   // 0..4095
-		uint16_t new_per = ((uint32_t)r * PER_MAX) / 4095;
+		uint16_t new_per = ((uint32_t)r * 250) / 4095;
 		TCA1.SINGLE.PERBUF = new_per;
 		ADC0.COMMAND = ADC_STCONV_bm;
 }

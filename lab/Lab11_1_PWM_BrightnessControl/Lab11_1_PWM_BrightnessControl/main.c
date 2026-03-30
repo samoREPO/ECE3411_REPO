@@ -148,7 +148,7 @@ void init_clock(void)
 void update_period(void)
 {
 	uint16_t r = ADC0.RES;   // 0..4095
-	uint16_t new_per = ((uint32_t)r * PER_MAX) / 4095;
+	uint16_t new_per = ((uint32_t)r * 999) / 4095;
 	TCA1.SINGLE.PERBUF = new_per;
 	ADC0.COMMAND = ADC_STCONV_bm;
 }
