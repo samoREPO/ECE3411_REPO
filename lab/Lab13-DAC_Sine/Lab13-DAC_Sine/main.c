@@ -17,10 +17,11 @@
 #include <stdlib.h>
 #include <avr/interrupt.h>
 
-#define DEBOUNCE_TIME 10000 // 10ms debounce time
-#define BTN (!(PORTB.IN & PIN2_bm))
+#define DEBOUNCE_TIME 10 // 10ms debounce time
 #define UPDATE_TIME 100
-#define PER_MAX 1000000/64
+#define N_SAMPLES 64
+#define BTN (!(PORTB.IN & PIN2_bm))
+#define PER_MAX 1000000 / N_SAMPLES
 
 typedef enum {RELEASED, MAYBE_PUSHED, PUSHED, MAYBE_RELEASED
 } btn_state_t;
@@ -28,10 +29,11 @@ typedef enum {RELEASED, MAYBE_PUSHED, PUSHED, MAYBE_RELEASED
 // -- GLOBAL VARIABLES
 volatile int debounce_timerCount = DEBOUNCE_TIME;
 volatile bool btnPushed = false;
+volatile uint16_t sample;
 
 bool frequency_high = false;
-uint8_t base_frequency = 10;
-uint8_t curr_frequency = 10;
+uint16_t base_frequency = 10;
+uint16_t curr_frequency = 10;
 float curr_amplitude_percent = 1.0;
 volatile uint8_t update_timer = UPDATE_TIME;
 volatile uint8_t index_sine_table = 0;
@@ -47,6 +49,8 @@ const uint16_t sine_table[64] PROGMEM = {
 	28, 37, 50, 68, 90, 116, 146, 180,
 	218, 259, 303, 350, 399, 449, 500, 551
 };
+
+uint16_t sine_table_copy[64];
 
 // -- FUNCTION PROTOTYPES
 // -- -- BUTTON PROTOTYPES
@@ -146,10 +150,12 @@ void handle_btn_push(void)
 	if(frequency_high)
 	{
 		base_frequency = 10;
+		frequency_high = false;
 	}
 	else
 	{
 		base_frequency = 100;
+		frequency_high = true;
 	}
 	
 }
@@ -188,7 +194,7 @@ ISR(TCA0_OVF_vect)
 void InitTCA1(void)
 {
 	TCA1.SINGLE.CTRLB = TCA_SINGLE_WGMODE_NORMAL_gc; // Normal mode
-	TCA1.SINGLE.PER = PER_MAX / base_frequency; // Set number of ticks per period
+	TCA1.SINGLE.PER = (PER_MAX / base_frequency); // Set number of ticks per period
 	
 	TCA1.SINGLE.INTCTRL = TCA_SINGLE_OVF_bm; // Enable TCA0 Overflow ISR
 	
@@ -198,7 +204,7 @@ void InitTCA1(void)
 
 ISR(TCA1_OVF_vect)
 {
-	if(index_sine_table < 64)
+	if(index_sine_table < 64 - 1)
 	{
 		index_sine_table++;
 	}
@@ -221,15 +227,14 @@ void InitDAC(void)
 
 void DAC_ouput(void)
 {
-	uint16_t sample = pgm_read_word(&sine_table[index_sine_table]);
-	sample = (int)((float) (curr_amplitude_percent * sample));
+	sample = sine_table_copy[index_sine_table];
 	DAC0.DATAL = sample & 0x03; // write low 2 bits
 	DAC0.DATAH =(sample >> 2) & 0xFF; 
 }
 
 // -- ADC FUNCTIONS -- //
 void init_ADC(void){
-	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc; // Input voltage at AIN8 PORTE0
+	ADC0.MUXPOS = ADC_MUXPOS_AIN4_gc; // Input voltage at AIN4 PORTD4
 	ADC0.CTRLC = ADC_PRESC_DIV16_gc; // Set CLK_ADC to 1MHz (valid range from 125kHz to 2MHz)
 	ADC0.CTRLD = ADC_INITDLY_DLY16_gc; // Delay 16 CLK_ADC cycles - 16 us
 	VREF.ADC0REF = VREF_REFSEL_VDD_gc; // VDD as reference
@@ -263,9 +268,13 @@ void update_Amplitude(void)
 	
 	uint16_t r = ADC0.RES;
 	
-	curr_amplitude_percent = ((float)r/4096.0f);
+	curr_amplitude_percent = ((float)r/4095.0f);
 	
 	//TODO update the sample values
+	for(int i=0; i<N_SAMPLES; i++)
+	{
+		sine_table_copy[i] = (uint16_t)((float) (curr_amplitude_percent * pgm_read_word(&sine_table[i])));
+	}
 	
 	char AmplitudeBuffer[6];
 	dtostrf(curr_amplitude_percent * 3.3f, 4, 2, AmplitudeBuffer);
@@ -276,7 +285,7 @@ void update_Amplitude(void)
 	LCDgotoXY(0,0);
 	LCDstring(LCDout);
 	
-	//TODO: actually scale ROM TABLE
+
 }
 
 void update_Frequency(void)
@@ -287,10 +296,11 @@ void update_Frequency(void)
 
 	uint16_t r = ADC0.RES;
 
-	curr_frequency = (1 + 9*((float)r/4096.0f)) * base_frequency;
+	curr_frequency = (uint16_t)((1.0f + 9.0f * ((float)r / 4095.0f)) * base_frequency);
+	TCA1.SINGLE.PERBUF = PER_MAX / curr_frequency;
 
 	char FrequencyBuffer[6];
-	dtostrf(curr_frequency, 4, 2, FrequencyBuffer);
+	dtostrf(curr_frequency, 4, 0, FrequencyBuffer);
 
 	char LCDout [20] = "f: ";
 	strcat(LCDout, FrequencyBuffer);
