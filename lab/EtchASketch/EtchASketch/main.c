@@ -6,6 +6,8 @@
  */ 
 
 /*
+ * EtchASketch.c
+ *
  * AVR128DB48 + SH1106
  * Pot on AIN4 -> X
  * Pot on AIN5 -> Y
@@ -23,14 +25,16 @@
 #include "I2C.h"
 #include "SH1106.h"
 
-#define ADC_MAX         4095UL
-#define SCREEN_X_MAX    (SH1106_WIDTH - 1)    // 127
-#define SCREEN_Y_MAX    (SH1106_HEIGHT - 1)   // 63
+#define ADC_MAX             4095UL
+#define SCREEN_X_MAX        (SH1106_WIDTH - 1)    // 127
+#define SCREEN_Y_MAX        (SH1106_HEIGHT - 1)   // 63
 
-// Timer ISR fires every 1 ms with your current setup.
-// Use separate software timers for sampling and display refresh.
-#define SAMPLE_PERIOD_MS    10
-#define REFRESH_PERIOD_MS   40
+#define SAMPLE_PERIOD_MS    5
+#define REFRESH_PERIOD_MS   25
+
+/* Buttons */
+#define BTN_CLEAR_bm        PIN2_bm   // PB2
+#define BTN_MODE_bm         PIN3_bm   // PB3
 
 /* FUNCTION PROTOTYPES */
 void init_clock(void);
@@ -40,12 +44,23 @@ uint8_t map_adc_to_x(uint16_t adc_val);
 uint8_t map_adc_to_y(uint16_t adc_val);
 void InitTCA0(void);
 
+static int abs_int(int v);
+void draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+
 /* GLOBAL VARIABLES */
 volatile uint16_t sample_timer = SAMPLE_PERIOD_MS;
 volatile uint16_t refresh_timer = REFRESH_PERIOD_MS;
 
 volatile uint8_t cursor_x = 0;
 volatile uint8_t cursor_y = 0;
+
+/* Draw mode state machine */
+typedef enum
+{
+    DRAW_SOLID = 0,
+    DRAW_DOTTED,
+    DRAW_OFF
+} draw_mode_t;
 
 int main(void)
 {
@@ -56,8 +71,19 @@ int main(void)
     TWI_Host_Initialize();
     SH1106_Init();
 
+    /* Buttons on PORTB, active low with pull-ups */
+    PORTB.DIRCLR = BTN_CLEAR_bm | BTN_MODE_bm;
+    PORTB.PIN2CTRL = PORT_PULLUPEN_bm;
+    PORTB.PIN3CTRL = PORT_PULLUPEN_bm;
+
     InitTCA0();
     sei();
+
+    uint8_t x_new, y_new;
+    uint8_t prev_x = 0, prev_y = 0;
+    uint8_t first_point = 1;
+
+    draw_mode_t draw_mode = DRAW_SOLID;
 
     SH1106_ClearBuffer();
     SH1106_SetPixel(cursor_x, cursor_y);
@@ -68,7 +94,6 @@ int main(void)
         if (sample_timer == 0)
         {
             uint16_t x_adc, y_adc;
-            uint8_t x_new, y_new;
 
             cli();
             sample_timer = SAMPLE_PERIOD_MS;
@@ -80,11 +105,47 @@ int main(void)
             x_new = map_adc_to_x(x_adc);
             y_new = map_adc_to_y(y_adc);
 
-            cursor_x = x_new;
-            cursor_y = y_new;
+            if (first_point)
+            {
+                cursor_x = x_new;
+                cursor_y = y_new;
+                prev_x = x_new;
+                prev_y = y_new;
 
-            // Etch-a-sketch behavior: keep drawing, never erase
-            SH1106_SetPixel(cursor_x, cursor_y);
+                /* show initial point only if not in OFF mode */
+                if (draw_mode != DRAW_OFF)
+                {
+                    SH1106_SetPixel(cursor_x, cursor_y);
+                }
+
+                first_point = 0;
+            }
+            else
+            {
+                prev_x = cursor_x;
+                prev_y = cursor_y;
+
+                cursor_x = x_new;
+                cursor_y = y_new;
+
+                switch (draw_mode)
+                {
+                    case DRAW_SOLID:
+                        draw_line(prev_x, prev_y, cursor_x, cursor_y);
+                        break;
+
+                    case DRAW_DOTTED:
+                        SH1106_SetPixel(cursor_x, cursor_y);
+                        break;
+
+                    case DRAW_OFF:
+                        /* move silently */
+                        break;
+
+                    default:
+                        break;
+                }
+            }
         }
 
         if (refresh_timer == 0)
@@ -95,11 +156,47 @@ int main(void)
 
             SH1106_UpdateScreen();
         }
-		if (!(PORTB.IN & PIN2_bm))   // active-low button example
-		{
-			SH1106_ClearBuffer();
-			SH1106_SetPixel(cursor_x, cursor_y);
-		}
+
+        /* Clear button: PB2 */
+        if (!(PORTB.IN & BTN_CLEAR_bm))
+        {
+            SH1106_ClearBuffer();
+
+            /* redraw current cursor only if visible mode */
+            if (draw_mode != DRAW_OFF)
+            {
+                SH1106_SetPixel(cursor_x, cursor_y);
+            }
+
+            SH1106_UpdateScreen();
+
+            while (!(PORTB.IN & BTN_CLEAR_bm));
+            _delay_ms(20);
+        }
+
+        /* Mode button: PB3
+           SOLID -> DOTTED -> OFF -> SOLID ...
+        */
+        if (!(PORTB.IN & BTN_MODE_bm))
+        {
+            draw_mode = (draw_mode_t)((draw_mode + 1) % 3);
+
+            /* Reset path anchor so switching back to solid
+               does not draw a long connecting line. */
+            prev_x = cursor_x;
+            prev_y = cursor_y;
+
+            /* Optional UART feedback */
+            if (draw_mode == DRAW_SOLID)
+                printf("Mode: SOLID\r\n");
+            else if (draw_mode == DRAW_DOTTED)
+                printf("Mode: DOTTED\r\n");
+            else
+                printf("Mode: OFF\r\n");
+
+            while (!(PORTB.IN & BTN_MODE_bm));
+            _delay_ms(20);
+        }
     }
 }
 
@@ -127,12 +224,50 @@ uint16_t ADC_Read_Channel(uint8_t muxpos)
 
 uint8_t map_adc_to_x(uint16_t adc_val)
 {
-	return (uint8_t)(((uint32_t)adc_val * (SH1106_WIDTH - 1)) / ADC_MAX);
+    return (uint8_t)(((uint32_t)adc_val * SCREEN_X_MAX) / ADC_MAX);
 }
 
 uint8_t map_adc_to_y(uint16_t adc_val)
 {
-	return (uint8_t)(((uint32_t)adc_val * (SH1106_HEIGHT - 1)) / ADC_MAX);
+    return (uint8_t)(((uint32_t)adc_val * SCREEN_Y_MAX) / ADC_MAX);
+}
+
+/* LINE DRAWING */
+
+static int abs_int(int v)
+{
+    return (v < 0) ? -v : v;
+}
+
+void draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
+{
+    int dx = abs_int((int)x1 - (int)x0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int dy = -abs_int((int)y1 - (int)y0);
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx + dy;
+
+    while (1)
+    {
+        SH1106_SetPixel(x0, y0);
+
+        if (x0 == x1 && y0 == y1)
+            break;
+
+        int e2 = 2 * err;
+
+        if (e2 >= dy)
+        {
+            err += dy;
+            x0 += sx;
+        }
+
+        if (e2 <= dx)
+        {
+            err += dx;
+            y0 += sy;
+        }
+    }
 }
 
 /* CLOCK */
