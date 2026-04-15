@@ -120,7 +120,64 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ADC.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="ADC.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="AnalogComparator.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="AnalogComparator.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="app.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="app.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="I2C_lib.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="I2C_lib.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="lcd_lib.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="lcd_lib.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="main.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="MPC4131.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="MPC4131.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="SPI.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="SPI.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="TCA0.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="TCA0.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart-avrdx.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="uart.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>
