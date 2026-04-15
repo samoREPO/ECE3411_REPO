@@ -15,7 +15,7 @@
 void init_AC(void)
 {
 	AC0.CTRLA = AC_ENABLE_bm;
-	/* compare pins PE0 (AINP1) and PD7 (AINN2) */
+	/* compare pins PE0 (0,AINP1) and PD7 (0,AINN2) */
 	AC0.MUXCTRL = (1 << AC_MUXPOS_gp) | (2 << AC_MUXNEG_gp);
 }
 

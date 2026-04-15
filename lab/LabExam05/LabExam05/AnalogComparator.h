@@ -13,5 +13,7 @@
 
 void init_AC(void);
 bool AC_is_output_high(void);
+void AC_DPOT(void);
+void AC_DAC(void);
 
 #endif /* ANALOGCOMPARATOR_H_ */

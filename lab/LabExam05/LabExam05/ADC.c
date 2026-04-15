@@ -26,7 +26,7 @@ void init_ADC(void)
 	while(ADC0.COMMAND & ADC_STCONV_bm);
 }
 
-uint16_t read_ADC1(void)	// DPOT
+uint16_t read_ADC1(void)	// POT1
 {
 	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc;
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
@@ -35,7 +35,7 @@ uint16_t read_ADC1(void)	// DPOT
 	return ADC0.RES;
 }
 
-uint16_t read_ADC2(void)	// DAC
+uint16_t read_ADC2(void)	// DPOT
 {
 	ADC0.MUXPOS = ADC_MUXPOS_AIN7_gc;
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
@@ -44,18 +44,18 @@ uint16_t read_ADC2(void)	// DAC
 	return ADC0.RES;
 }
 
-uint16_t read_ADC3(void)	// POT 1
+uint16_t read_ADC3(void)	// POT 2
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN6_gc;
+	ADC0.MUXPOS = ADC_MUXPOS_AIN3_gc;
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
 	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
 	
 	return ADC0.RES;
 }
 
-uint16_t read_ADC4(void)	// POT 2
+uint16_t read_ADC4(void)	// DAC
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN5_gc;
+	ADC0.MUXPOS = ADC_MUXPOS_AIN6_gc;
 	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
 	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
 	

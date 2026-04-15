@@ -26,7 +26,7 @@ void SPI_Host_Init(void)
 	SPI_PORT.OUTSET = SPI_SS;
 
 	/* Enable SPI in host mode, fclk/128 */
-	SPI0.CTRLA = SPI_ENABLE_bm | SPI_MASTER_bm | SPI_PRESC_DIV128_gc;
+	SPI0.CTRLA = SPI_ENABLE_bm | SPI_MASTER_bm | SPI_PRESC_DIV64_gc;
 }
 
 uint8_t SPI_Transfer(uint8_t data)
