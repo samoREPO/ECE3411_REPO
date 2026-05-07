@@ -5,59 +5,50 @@
  *  Author: samou
  */ 
 
-#define F_CPU 16000000UL
-
 #include "ADC.h"
 #include <avr/io.h>
 #include <stdint.h>
 
-#define ADC_MAX 4095.0
+uint16_t adc_read_channel(uint8_t muxpos)
+{
+    ADC0.MUXPOS = muxpos;
 
+    // First conversion after mux switch: discard
+    ADC0.COMMAND = ADC_STCONV_bm;
+    while (ADC0.COMMAND & ADC_STCONV_bm) {}
+    (void)ADC0.RES;
+
+    // Second conversion: use this one
+    ADC0.COMMAND = ADC_STCONV_bm;
+    while (ADC0.COMMAND & ADC_STCONV_bm) {}
+
+    return ADC0.RES;
+}
 
 void init_ADC(void)
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc; // Input voltage at AIN8 PORTE0
-	ADC0.CTRLC = ADC_PRESC_DIV16_gc; // Set CLK_ADC to 1MHz (valid range from 125kHz to 2MHz)
-	ADC0.CTRLD = ADC_INITDLY_DLY16_gc; // Delay 16 CLK_ADC cycles - 16 us
-	VREF.ADC0REF = VREF_REFSEL_VDD_gc; // VDD as reference
-	ADC0.CTRLA |= ADC_ENABLE_bm; // enables the ADC circuitry and left adjusted and 12-bit (3.3/2^12=0.8mV resolution
-	ADC0.COMMAND = ADC_STCONV_bm; // start first A to D conversion
-	
-	while(ADC0.COMMAND & ADC_STCONV_bm);
+    ADC0.CTRLC = ADC_PRESC_DIV16_gc;
+    ADC0.CTRLD = ADC_INITDLY_DLY16_gc;
+    VREF.ADC0REF = VREF_REFSEL_VDD_gc;
+    ADC0.CTRLA = ADC_ENABLE_bm;
 }
 
-uint16_t read_ADC1(void)	// POT1
+uint16_t read_ADC1(void)   // POT1
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN8_gc;
-	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
-	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
-		
-	return ADC0.RES;
+    return adc_read_channel(ADC_MUXPOS_AIN8_gc);
 }
 
-uint16_t read_ADC2(void)	// DPOT
+uint16_t read_ADC2(void)   // DPOT output
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN7_gc;
-	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
-	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
-	
-	return ADC0.RES;
+    return adc_read_channel(ADC_MUXPOS_AIN7_gc);
 }
 
-uint16_t read_ADC3(void)	// POT 2
+uint16_t read_ADC3(void)   // POT2
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN3_gc;
-	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
-	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
-	
-	return ADC0.RES;
+    return adc_read_channel(ADC_MUXPOS_AIN3_gc);
 }
 
-uint16_t read_ADC4(void)	// DAC
+uint16_t read_ADC4(void)   // DAC output
 {
-	ADC0.MUXPOS = ADC_MUXPOS_AIN6_gc;
-	ADC0.COMMAND = ADC_STCONV_bm; // start next A to D conversion
-	loop_until_bit_is_clear(ADC0.COMMAND, ADC_STCONV_bp);
-	
-	return ADC0.RES;
+    return adc_read_channel(ADC_MUXPOS_AIN0_gc);
 }

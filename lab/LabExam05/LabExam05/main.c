@@ -8,7 +8,7 @@
 #define F_CPU 16000000UL
 
 #define EEPROM_FLAG_ADR (uint8_t*)0	// store flag at position 0
-#define EEPROM_DATA_ADR (uint8_t*)1	// store data at position 1
+#define EEPROM_DATA_ADR (float*)1	// store data at position 1
 #define BUFFER_SIZE 16
 
 #include <avr/io.h>
@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "lcd_lib.h"
 #include "I2C_lib.h"
@@ -28,7 +29,6 @@
 #include "DAC.h"
 #include "TCA0.h"
 #include "SPI.h"
-#include "AnalogComparator.h"
 #include "MPC4131.h"
 #include "uart.h"
 #include "app.h"
@@ -42,16 +42,16 @@ typedef enum {RELEASED, MAYBE_PUSHED, PUSHED, MAYBE_RELEASED
 /* FUNCTION PROTOTYPES */
 // -- SYSTEM
 void init_clock(void);
+void buttonSM(void);
+void save_current_difference(void);
+void show_saved_difference(void);
 
 /* GLOBAL VARIABLES */
+volatile uint16_t two_sec_timer = 0;
 volatile uint16_t one_sec_counter = 100;
 volatile int debounce_timerCount = DEBOUNCE_TIME;
 volatile bool btnPushed = false;
-
-// -- EEPROM
-volatile char read_buffer[16];
-volatile char write_buffer[16];
-volatile bool password_match = false;
+volatile bool handled = false;
 
 int main(void)
 {
@@ -63,33 +63,34 @@ int main(void)
 	TWI_Host_Initialize();
 	LCDinitialize();
 	InitTCA0();
-	init_AC();
 	init_ADC();
 	InitDAC();
 	SPI_Host_Init();
 	uart_init(3, 9600, NULL);
 	sei();
 	
-	while (1)
-	{
-		uint8_t do_update = 0;
-		cli();
-		if (one_sec_counter == 0) {
-			one_sec_counter = 1000;
-			do_update = 1;
-		}
-		sei();
+    if (eeprom_read_byte(EEPROM_FLAG_ADR) == 'T') {
+        show_saved_difference();
+        while (handled) {}
+    }
 
-		if (do_update) {
-			update_and_display_voltages();
-		}
-		if(btnPushed){
-			cli();
-			btnPushed = false;
-			sei();
-			handle_btn_push();
-		}
-	}
+    while (1) {
+        if (!handled && one_sec_counter == 0) {
+            cli();
+            one_sec_counter = 1000;
+            sei();
+
+            update_outputs_and_display();
+        }
+
+        if (btnPushed && !handled) {
+            cli();
+            btnPushed = false;
+            sei();
+
+            save_current_difference();
+        }
+    }
 }
 
 /* FUNCTION DEFINITIONS */
@@ -109,6 +110,16 @@ ISR(TCA0_OVF_vect)
 		buttonSM();
 		debounce_timerCount = DEBOUNCE_TIME;
 	}
+	if(handled){
+		if(two_sec_timer>0)
+		{
+			two_sec_timer--;
+		}
+		else{
+			handled = false;
+		}
+	}
+
 	TCA0.SINGLE.INTFLAGS = TCA_SINGLE_OVF_bm;
 }
 
@@ -128,52 +139,50 @@ void init_clock(void)
 
 void buttonSM(void)
 {
-	static btn_state_t btn_state = RELEASED;
-	switch(btn_state){
-		case RELEASED:
-		if(BTN) btn_state = MAYBE_PUSHED;
-		break;
-		case MAYBE_PUSHED:
-		if(BTN){
-			btn_state = PUSHED;
-			btnPushed = true;
-		}
-		else btn_state = RELEASED;
-		break;
-		case PUSHED:
-		if(!BTN) btn_state = MAYBE_RELEASED;
-		break;
-		case MAYBE_RELEASED:
-		if(BTN) btn_state = PUSHED;
-		else btn_state = RELEASED;
-		break;
-	}
-	
+    static btn_state_t btn_state = RELEASED;
+
+    switch (btn_state) {
+        case RELEASED:
+            if (BTN) btn_state = MAYBE_PUSHED;
+            break;
+
+        case MAYBE_PUSHED:
+            if (BTN) {
+                btn_state = PUSHED;
+                btnPushed = true;
+            } else {
+                btn_state = RELEASED;
+            }
+            break;
+
+        case PUSHED:
+            if (!BTN) btn_state = MAYBE_RELEASED;
+            break;
+
+        case MAYBE_RELEASED:
+            if (BTN) btn_state = PUSHED;
+            else btn_state = RELEASED;
+            break;
+    }
 }
 
-void handle_btn_push(void)
+void save_current_difference(void)
 {
-	
+    float diff = measure_difference();
+
+    eeprom_write_float(EEPROM_DATA_ADR, diff);
+    eeprom_write_byte(EEPROM_FLAG_ADR, 'T');
+
+    handled = true;
+    two_sec_timer = 2000;
+    display_difference(diff);
 }
 
-void write_user_password(void)
+void show_saved_difference(void)
 {
-	char user_password[BUFFER_SIZE];
-	fprintf(stdout, "Enter new password\n\r");
-	fgets(user_password, BUFFER_SIZE, stdin);
-	eeprom_write_block(user_password, EEPROM_DATA_ADR, BUFFER_SIZE);
-	eeprom_write_byte(EEPROM_FLAG_ADR, 'T');
-}
+    float diff = eeprom_read_float(EEPROM_DATA_ADR);
 
-bool validate_password(void)
-{
-	char user_password[BUFFER_SIZE];
-	fprintf(stdout, "Enter correct password\n\r");
-	fgets(user_password, BUFFER_SIZE, stdin);
-	
-	char stored_password[BUFFER_SIZE];
-	eeprom_read_block(stored_password, EEPROM_DATA_ADR, BUFFER_SIZE);
-	
-	if(strcmp(user_password, stored_password) == 0) return true;
-	else return false;
+    handled = true;
+    two_sec_timer = 2000;
+    display_difference(diff);
 }

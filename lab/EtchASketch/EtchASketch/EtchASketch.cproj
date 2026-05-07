@@ -136,30 +136,65 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="I2C.c">
+    <Compile Include="Apps\etch_sketch.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="I2C.h">
+    <Compile Include="Apps\etch_sketch.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\ADC.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\ADC.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\button.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\button.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\I2C.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\I2C.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\SH1106.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\SH1106.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\TCA.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\TCA.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\uart-avrdx.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\uart.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Drivers\uart.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="GFX\gfx.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="GFX\gfx.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="SH1106.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="SH1106.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="uart-avrdx.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="uart.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="uart.h">
-      <SubType>compile</SubType>
-    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Drivers" />
+    <Folder Include="Apps" />
+    <Folder Include="GFX" />
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>

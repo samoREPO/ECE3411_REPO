@@ -11,9 +11,15 @@
 
 #include <stdint.h>
 
+/* Conversion helpers */
 float adc_to_voltage(uint16_t sample);
-void LCD_display_voltage_pair(float pot_voltage, float dpot_voltage);
-void update_and_display_voltages(void);
-void update_and_display_voltages_DPOT_DAC(void);
+
+/* Main application behavior */
+void update_outputs_and_display(void);
+float measure_difference(void);
+
+/* LCD helpers */
+void display_two_voltages(float dac_v, float dpot_v);
+void display_difference(float diff);
 
 #endif /* APP_H_ */

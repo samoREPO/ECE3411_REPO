@@ -9,122 +9,98 @@
  */
 
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "app.h"
 #include "ADC.h"
 #include "DAC.h"
 #include "lcd_lib.h"
 #include "MPC4131.h"
-#include "AnalogComparator.h"
 
-#define ADC_REF_VOLTAGE 3.3f
-#define ADC_COUNTS      4096.0f
-#define DAC_COUNTS		1024.0f
+#define VREF_ADC        3.3f
+#define ADC_MAX_COUNTS  4095.0f
+#define DAC_MAX_COUNTS  1023.0f
+#define DPOT_MAX_COUNTS 127.0f
 
-static uint8_t config_MPC4131(void)
+static uint8_t pot1_to_dpot_code(uint16_t pot1_raw)
 {
-	uint8_t curr_setting = 0x00;
-
-	for (int8_t i = 6; i >= 0; i--)
-	{
-		uint8_t guess = curr_setting | (uint8_t)(1U << i);
-		MPC4131_write(guess);
-
-		if (AC_is_output_high())
-		{
-			curr_setting |= (0x01 << i);
-		}
-	}
-
-	return curr_setting;
+    return (uint8_t)((pot1_raw * DPOT_MAX_COUNTS) / ADC_MAX_COUNTS);
 }
 
-static uint16_t config_DAC(uint16_t pot2_raw)
+static uint16_t pot2_to_dac_code(uint16_t pot2_raw)
 {
-	uint16_t conversion = (((float)(pot2_raw * DAC_COUNTS)) / ADC_COUNTS) ;
-
-
-	DAC_ouput(conversion);
-
-	return conversion;
+    return (uint16_t)((pot2_raw * DAC_MAX_COUNTS) / ADC_MAX_COUNTS);
 }
 
 float adc_to_voltage(uint16_t sample)
 {
-	return ((float)sample / ADC_COUNTS) * ADC_REF_VOLTAGE;
+    return ((float)sample * VREF_ADC) / ADC_MAX_COUNTS;
 }
 
-void LCD_display_voltage_pair(float pot_voltage, float dpot_voltage)
+void display_two_voltages(float dac_v, float dpot_v)
 {
-	char VoltageBuffer[6];
-	
-	dtostrf(pot_voltage, 4, 2, VoltageBuffer);
-	char LCDout [20] = "V DAC: ";
-	strcat(LCDout, VoltageBuffer);
-	
-	LCDgotoXY(0, 0);
-	LCDstring(LCDout);
+    char line[17];
+    char num[8];
 
-	dtostrf(dpot_voltage, 4, 2, VoltageBuffer);
-	char LCD2out [20] = "V DPOT: ";
-	strcat(LCD2out, VoltageBuffer);
-	
-	LCDgotoXY(0, 1);
-	LCDstring(LCD2out);
+    LCDclr();
+
+    dtostrf(dac_v, 4, 2, num);
+    snprintf(line, sizeof(line), "V DAC: %s", num);
+    LCDgotoXY(0, 0);
+    LCDstring(line);
+
+    dtostrf(dpot_v, 4, 2, num);
+    snprintf(line, sizeof(line), "V DPOT:%s", num);
+    LCDgotoXY(0, 1);
+    LCDstring(line);
 }
 
-void update_and_display_voltages(void)
+void update_outputs_and_display(void)
 {
-	uint16_t pot1_raw;
-	uint16_t pot2_raw;
-	uint16_t dpot_raw;
-	uint16_t dac_raw;
-	float dac_voltage;
-	float dpot_voltage;
+    uint16_t pot1_raw = read_ADC1();
+    uint16_t pot2_raw = read_ADC3();
 
-	pot1_raw = read_ADC1();
-	pot2_raw = read_ADC3();
-	
-	
-	config_DAC(pot2_raw);
+    uint8_t dpot_code = pot1_to_dpot_code(pot1_raw);
+    uint16_t dac_code = pot2_to_dac_code(pot2_raw);
 
-	config_MPC4131();
+    MPC4131_write(dpot_code);
+    DAC_ouput(dac_code);
 
-	dpot_raw = read_ADC2();
-	dac_raw = read_ADC4();
+    uint16_t dpot_meas_raw = read_ADC2();
+    uint16_t dac_meas_raw  = read_ADC4();
 
-	dac_voltage = adc_to_voltage(dac_raw);
-	dpot_voltage = adc_to_voltage(dpot_raw);
+    float dpot_v = adc_to_voltage(dpot_meas_raw);
+    float dac_v  = adc_to_voltage(dac_meas_raw);
 
-	LCD_display_voltage_pair(dac_voltage, dpot_voltage);
+    display_two_voltages(dac_v, dpot_v);
 }
 
-static uint8_t set_MPC4131_2Volts(void)
+float measure_difference(void)
 {
-	uint8_t guess = 0b1001111;
-	MPC4131_write(guess);
+    uint16_t dpot_meas_raw = read_ADC2();
+    uint16_t dac_meas_raw  = read_ADC4();
 
-	return guess;
+    float dpot_v = adc_to_voltage(dpot_meas_raw);
+    float dac_v  = adc_to_voltage(dac_meas_raw);
+
+    if (dac_v >= dpot_v) {
+        return dac_v - dpot_v;
+    } else {
+        return dpot_v - dac_v;
+    }
 }
 
-void update_and_display_voltages_DPOT_DAC(void)
+void display_difference(float diff)
 {
-	uint16_t pot_raw;
-	uint16_t dpot_raw;
-	float pot_voltage;
-	float dpot_voltage;
+    char line[17];
+    char num[8];
 
-	pot_raw = read_ADC1();
+    LCDclr();
 
-	set_MPC4131_2Volts();
-
-	dpot_raw = read_ADC2();
-
-	pot_voltage = adc_to_voltage(pot_raw);
-	dpot_voltage = adc_to_voltage(dpot_raw);
-
-	LCD_display_voltage_pair(pot_voltage, dpot_voltage);
+    dtostrf(diff, 4, 2, num);
+    snprintf(line, sizeof(line), "V DIFF:%s", num);
+    LCDgotoXY(0, 0);
+    LCDstring(line);
 }

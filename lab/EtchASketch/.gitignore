@@ -1,0 +1,14 @@
+.DS_Store
+.vs/
+.vscode/ipch/
+build/
+EtchASketch/Debug/
+*.o
+*.d
+*.elf
+*.hex
+*.eep
+*.lss
+*.map
+*.srec
+MPLABXlog.xml
